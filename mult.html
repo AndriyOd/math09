@@ -190,7 +190,7 @@
         #stat_correct,
         #stat_streak,
         #stat_wrong {
-            font-size: 1em;
+            font-size: 0.75em;
         }
     </style>
 </head>
@@ -462,12 +462,20 @@
 
             const r = Math.random()
 
+            /*
             if (r < 0.7) {
                 current = { text: `${a} • ${b} = `, answer: product, key: card.key }
             } else if (r < 0.85) {
                 current = { text: `${product} : ${a} = `, answer: b, key: card.key }
             } else {
                 current = { text: `${product} : ${b} = `, answer: a, key: card.key }
+            }
+            */
+
+            if (r < 0.6) {
+                current = { text: `${a} • ${b} = `, answer: product, key: card.key }
+            } else {
+                current = { text: `${product} : ${a} = `, answer: b, key: card.key }
             }
 
             userAnswer = ""
