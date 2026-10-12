@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>Jump 10 Trainer</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+    <style>
+        /*for smartphones*/
+        body {
+            font-family: "Segoe UI", sans-serif;
+            margin: 0;
+            background: #f5f5f5;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #0078d7;
+            color: white;
+            padding: 10px 20px;
+        }
+
+        #lang-switch span {
+            cursor: pointer;
+            opacity: .6;
+            font-weight: bold;
+        }
+
+        #lang-switch .active {
+            opacity: 1;
+            text-decoration: underline;
+        }
+
+        #share-btn,
+        #reset-btn {
+            margin-left: 8px;
+            background: #35a8ea;
+            border: none;
+            color: white;
+            padding: 6px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 260px 1fr 300px;
+            gap: 20px;
+            padding: 20px;
+        }
+
+
+        @media(max-width:900px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+
+            .heatmap {
+                gap: 2px;
+            }
+
+            .heatcell {
+                height: 15px;
+                /* было 18px */
+            }
+
+            .example {
+                font-size: 21px;
+                /* было 42px → стало в 2 раза меньше */
+                margin-bottom: 10px;
+                /* уменьшаем отступ */
+            }
+
+            .keypad {
+                grid-template-rows: repeat(4, 60px);
+                /* было 70px */
+                gap: 8px;
+            }
+
+            .key {
+                font-size: 18px;
+            }
+
+
+        }
+
+
+
+
+        /*
+        @media(max-width:900px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+
+            .heatmap {
+                transform: scaleY(0.85);
+                transform-origin: top;
+            }
+
+            .center {
+                transform: scaleY(0.85);
+                transform-origin: top;
+            }
+        }*/
+
+        .left,
+        .center,
+        .right {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, .1);
+        }
+
+        .tiles {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .tile {
+            background: #e9f2fb;
+            padding: 14px;
+            text-align: center;
+            font-size: 20px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .tile.active {
+            background: #0078d7;
+            color: white;
+        }
+
+        .tile.inactive {
+            background: #ccc;
+            color: #666;
+        }
+
+        .start-btn {
+            width: 100%;
+            padding: 10px;
+            font-size: 18px;
+            background: #28a745;
+            border: none;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .heatmap {
+            margin-top: 15px;
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 3px;
+        }
+
+        .heatcell {
+            height: 18px;
+            border-radius: 3px;
+        }
+
+        .example {
+            font-size: 42px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .correctFlash {
+            background: #c6ffd1;
+        }
+
+        .wrongFlash {
+            background: #ffd0d0;
+        }
+
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(4, 70px);
+            gap: 10px;
+        }
+
+        .key {
+            font-size: 22px;
+            border: none;
+            border-radius: 10px;
+            background: #e9f2fb;
+            cursor: pointer;
+        }
+
+        .enter {
+            grid-row: 1/5;
+            grid-column: 4;
+            background: #0078d7;
+            color: white;
+            font-size: 26px;
+        }
+
+        .zero {
+            grid-column: 1/3;
+        }
+
+        .backspace {
+            grid-column: 3;
+        }
+
+        .stat-green {
+            color: rgb(0, 128, 0);
+            font-weight: bold;
+        }
+
+        .stat-red {
+            color: #ab133b;
+            font-weight: bold;
+        }
+
+        #queue {
+            margin-top: 10px;
+            max-height: 500px;
+            overflow-y: auto;
+            font-size: 0.75em;
+        }
+
+        #queue span.box {
+            color: black;
+            padding: 0 4px;
+            border-radius: 3px;
+            margin-left: 5px;
+        }
+
+        #stat_total,
+        #stat_correct,
+        #stat_streak,
+        #stat_wrong {
+            font-size: 0.75em;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div id="datetime"></div>
+
+        <div id="lang-switch">
+            <span data-lang="ru">RU</span> |
+            <span data-lang="de">DE</span> |
+            <span data-lang="en">EN</span>
+            <button id="share-btn"></button>
+            <button id="reset-btn"></button>
+        </div>
+    </header>
+
+    <div class="container">
+
+        <div class="left">
+            <div class="tiles" id="tiles"></div>
+            <button class="start-btn" id="startBtn"></button>
+            <div class="heatmap" id="heatmap"></div>
+        </div>
+
+        <div class="center">
+            <div class="example" id="example"></div>
+
+            <div class="keypad">
+                <button class="key">1</button>
+                <button class="key">2</button>
+                <button class="key">3</button>
+                <button class="key">4</button>
+                <button class="key">5</button>
+                <button class="key">6</button>
+                <button class="key">7</button>
+                <button class="key">8</button>
+                <button class="key">9</button>
+                <button class="key zero">0</button>
+                <button class="key backspace">←</button>
+                <button class="key enter">Enter</button>
+            </div>
+        </div>
+
+        <div class="right">
+
+            <div id="stat_total"></div>
+            <div id="stat_correct"></div>
+            <div id="stat_streak"></div>
+            <div id="stat_wrong"></div>
+
+            <div id="queue"></div>
+
+        </div>
+    </div>
+
+    <script>
+
+        // ==== Настройки ====
+        const RESET_PASSWORD = "1324"
+        const CARDS_KEY = "cards_jump10"     // карточки (отдельно от mult.html)
+        const STEP_KEY = "step_jump10"       // счётчик шагов, чтобы интервалы не «сбивались» после перезагрузки
+        const MIN_N = 1, MAX_N = 9           // строки и столбцы 1–9
+
+        const INTERVALS = {
+            0: 0,
+            1: 2,
+            2: 5,
+            3: 10,
+            4: 20,
+            5: 40,
+            6: 9999
+        }
+
+        const colors = {
+            0: "#eeeeee",
+            1: "#fc7979",
+            2: "#ffd6d6",
+            3: "#ffe6cc",
+            4: "#fff5cc",
+            5: "#e6ffe6",
+            6: "#91ffaf"
+        }
+
+        const TEXT = {
+            ru: {
+                start: "Начать", share: "Поделиться", reset: "Сброс статистики",
+                total: "Всего примеров", correct: "Верных", wrong: "Неверных", streak: "Верных подряд",
+                password: "Пароль",
+                resetPrompt: "Введите число 1–9 для сброса строки или 200 для полного сброса",
+                shareUnsupported: "Ваш браузер не поддерживает шаринг файлов."
+            },
+            en: {
+                start: "Start", share: "Share", reset: "Reset",
+                total: "Total", correct: "Correct", wrong: "Wrong", streak: "Streak",
+                password: "Password",
+                resetPrompt: "Enter a number 1–9 to reset a row or 200 for a full reset",
+                shareUnsupported: "Your browser does not support sharing files."
+            },
+            de: {
+                start: "Start", share: "Teilen", reset: "Reset",
+                total: "Gesamt", correct: "Richtig", wrong: "Falsch", streak: "Serie",
+                password: "Passwort",
+                resetPrompt: "Zahl 1–9 für eine Zeile oder 200 für einen kompletten Reset eingeben",
+                shareUnsupported: "Dein Browser unterstützt das Teilen von Dateien nicht."
+            }
+        }
+
+        // ==== Безопасная работа с localStorage (может быть недоступен или повреждён) ====
+        function lsGet(key) {
+            try { return localStorage.getItem(key) } catch (e) { return null }
+        }
+        function lsSet(key, value) {
+            try { localStorage.setItem(key, value) } catch (e) { /* игнорируем */ }
+        }
+
+        const savedLang = lsGet("lang")
+        let lang = (savedLang && TEXT[savedLang]) ? savedLang : "de"
+
+        let active = []
+        let cards = {}
+        let step = 0
+        let current = null
+        let lastKey = null
+        let userAnswer = ""
+        let locked = false        // после верного ответа ввод блокируется до следующего примера
+        let nextTimer = null
+
+        let total = 0
+        let correct = 0
+        let wrong = 0
+        let streak = 0
+
+        // ==== Карточки: пара (a, b), a + b >= 10, a и b от 1 до 9 ====
+        function keyOf(a, b) { return `${a}+${b}` }
+        function firstCol(a) { return Math.max(MIN_N, 10 - a) }   // 10 − a ... 9
+
+        function INIT() {
+            initLanguage()
+            initTiles()
+            loadCards()
+            buildHeatmap()
+            initKeypad()
+            initButtons()
+            updateStats()
+            updateQueue()
+            startClock()
+        }
+
+        function startClock() {
+            const el = document.getElementById("datetime")
+            function tick() {
+                const locale = lang === "de" ? "de-DE" : lang === "en" ? "en-GB" : "ru-RU"
+                el.textContent = new Date().toLocaleString(locale)
+            }
+            tick()
+            setInterval(tick, 1000)
+            window.tickClock = tick
+        }
+
+        function initLanguage() {
+
+            const startBtn = document.getElementById("startBtn")
+            const shareBtn = document.getElementById("share-btn")
+            const resetBtn = document.getElementById("reset-btn")
+
+            function apply() {
+                document.documentElement.lang = lang
+                startBtn.textContent = TEXT[lang].start
+                shareBtn.textContent = TEXT[lang].share
+                resetBtn.textContent = TEXT[lang].reset
+                document.querySelectorAll("#lang-switch span").forEach(x =>
+                    x.classList.toggle("active", x.dataset.lang === lang))
+                updateStats()
+                if (window.tickClock) window.tickClock()
+            }
+
+            document.querySelectorAll("#lang-switch span").forEach(el => {
+                el.onclick = () => {
+                    lang = el.dataset.lang
+                    lsSet("lang", lang)
+                    apply()
+                }
+            })
+
+            apply()
+        }
+
+        function initTiles() {
+            const tiles = document.getElementById("tiles")
+
+            for (let i = MIN_N; i <= MAX_N; i++) {
+
+                const tile = document.createElement("div")
+                tile.className = "tile active"
+                tile.textContent = i
+                active.push(i)
+
+                tile.onclick = () => {
+                    if (active.includes(i)) {
+                        active = active.filter(x => x !== i)
+                        tile.classList.remove("active")
+                        tile.classList.add("inactive")
+                    } else {
+                        active.push(i)
+                        tile.classList.remove("inactive")
+                        tile.classList.add("active")
+                    }
+                    updateQueue()
+                }
+
+                tiles.appendChild(tile)
+            }
+        }
+
+        function loadCards() {
+            cards = {}
+
+            // Карточки: принимаем только корректные записи вида "a+b"
+            try {
+                const raw = JSON.parse(lsGet(CARDS_KEY) || "{}")
+                if (raw && typeof raw === "object") {
+                    for (let a = MIN_N; a <= MAX_N; a++) {
+                        for (let b = firstCol(a); b <= MAX_N; b++) {
+                            const c = raw[keyOf(a, b)]
+                            if (c && Number.isFinite(c.box) && Number.isFinite(c.due)) {
+                                cards[keyOf(a, b)] = {
+                                    box: Math.min(6, Math.max(0, Math.round(c.box))),
+                                    due: c.due
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                cards = {}
+            }
+
+            const s = parseInt(lsGet(STEP_KEY))
+            step = Number.isFinite(s) && s >= 0 ? s : 0
+        }
+
+        function save() {
+            lsSet(CARDS_KEY, JSON.stringify(cards))
+            lsSet(STEP_KEY, String(step))
+        }
+
+        function getCard(key) {
+            if (!cards[key]) cards[key] = { box: 0, due: 0 }
+            return cards[key]
+        }
+
+        // Тепловая матрица: «лесенка». Клетки, которых нет (a + b < 10), не закрашиваются
+        function buildHeatmap() {
+
+            const heatmap = document.getElementById("heatmap")
+            heatmap.innerHTML = ""
+
+            heatmap.appendChild(document.createElement("div"))
+
+            for (let i = MIN_N; i <= MAX_N; i++) {
+                const h = document.createElement("div")
+                h.textContent = i
+                heatmap.appendChild(h)
+            }
+
+            for (let a = MIN_N; a <= MAX_N; a++) {
+
+                const row = document.createElement("div")
+                row.textContent = a
+                heatmap.appendChild(row)
+
+                for (let b = MIN_N; b <= MAX_N; b++) {
+
+                    const cell = document.createElement("div")
+                    cell.className = "heatcell"
+
+                    if (a + b >= 10) {
+                        const card = getCard(keyOf(a, b))
+                        cell.style.background = colors[card.box]
+                    }
+
+                    heatmap.appendChild(cell)
+                }
+            }
+        }
+
+        function weightedChoice(pool) {
+
+            const weighted = []
+
+            pool.forEach(item => {
+                const card = getCard(item.key)
+                const weight = 8 - card.box
+
+                for (let i = 0; i < weight; i++) {
+                    weighted.push(item)
+                }
+            })
+
+            return weighted[Math.floor(Math.random() * weighted.length)]
+        }
+
+        function sortedActive() {
+            return [...active].sort((x, y) => x - y)
+        }
+
+        function newExample() {
+
+            if (!active.length) return
+
+            clearTimeout(nextTimer)
+            locked = false
+
+            step++
+            save()
+
+            let pool = []
+            let fallback = []
+            let everything = []
+
+            active.forEach(a => {
+                for (let b = firstCol(a); b <= MAX_N; b++) {
+
+                    const key = keyOf(a, b)
+                    const card = getCard(key)
+                    const item = { a, b, key }
+
+                    everything.push(item)
+
+                    if (card.box < 6) {
+
+                        if (card.due <= step) {
+                            pool.push(item)
+                        }
+
+                        fallback.push(item)
+                    }
+                }
+            })
+
+            if (!pool.length) pool = fallback
+            if (!pool.length) pool = everything   // все карточки выучены — повторяем их
+
+            let card
+
+            do {
+                card = weightedChoice(pool)
+            } while (card.key === lastKey && pool.length > 1)
+
+            lastKey = card.key
+
+            const a = card.a
+            const b = card.b
+            const sum = a + b
+
+            // 50% сложение, 50% вычитание. Вычитание — «близнец» той же карточки: (a+b) − b = a
+            if (Math.random() < 0.5) {
+                current = { text: `${a} + ${b} = `, answer: sum, key: card.key }
+            } else {
+                current = { text: `${sum} − ${b} = `, answer: a, key: card.key }
+            }
+
+            userAnswer = ""
+            document.getElementById("example").textContent = current.text
+            updateQueue()
+        }
+
+        function updateQueue() {
+
+            const queue = document.getElementById("queue")
+            queue.innerHTML = ""
+
+            sortedActive().forEach(a => {
+                for (let b = firstCol(a); b <= MAX_N; b++) {
+
+                    const key = keyOf(a, b)
+                    const card = getCard(key)
+
+                    const div = document.createElement("div")
+                    div.textContent = `${key} → `
+
+                    const span = document.createElement("span")
+                    span.className = "box"
+                    span.textContent = `Box ${card.box}`
+                    span.style.background = colors[card.box]
+
+                    div.appendChild(span)
+
+                    queue.appendChild(div)
+                }
+            })
+        }
+
+        function initKeypad() {
+
+            document.querySelectorAll(".key").forEach(k => {
+
+                k.onclick = () => {
+
+                    if (!current || locked) return
+
+                    const v = k.textContent
+
+                    if (v === "Enter") {
+                        check()
+                    }
+                    else if (v === "←") {
+                        userAnswer = userAnswer.slice(0, -1)
+                    }
+                    else if (userAnswer.length < 2) {      // ответы не длиннее двух цифр (макс. 18)
+                        userAnswer += v
+                    }
+
+                    updateExample()
+                }
+            })
+        }
+
+        function updateExample() {
+            if (current)
+                document.getElementById("example").textContent = current.text + userAnswer
+        }
+
+        function check() {
+
+            if (!current || locked) return
+
+            const val = parseInt(userAnswer)
+            if (isNaN(val)) return
+
+            total++
+
+            const card = getCard(current.key)
+
+            if (val === current.answer) {
+
+                correct++
+                streak++
+                locked = true
+
+                if (card.box === 0) {
+                    card.box = 3
+                }
+                else if (card.box === 1) {
+                    card.box = 2
+                }
+                else {
+                    card.box = Math.min(card.box + 1, 6)
+                }
+
+                card.due = step + INTERVALS[card.box]
+
+                save()
+                buildHeatmap()
+                flash("correctFlash")
+                updateStats()
+
+                nextTimer = setTimeout(newExample, 700)
+
+            } else {
+
+                wrong++
+                streak = 0
+
+                card.box = 1
+                card.due = step + INTERVALS[card.box]
+
+                save()
+                buildHeatmap()
+                flash("wrongFlash")
+                updateStats()
+
+                userAnswer = ""
+                updateExample()
+            }
+        }
+
+        function flash(cls) {
+            const el = document.getElementById("example")
+            el.classList.add(cls)
+            setTimeout(() => el.classList.remove(cls), 500)
+        }
+
+        function updateStats() {
+
+            document.getElementById("stat_total").innerHTML = `${TEXT[lang].total}: <b>${total}</b>`
+            document.getElementById("stat_correct").innerHTML = `${TEXT[lang].correct}: <b class="stat-green">${correct}</b>`
+            document.getElementById("stat_streak").innerHTML = `${TEXT[lang].streak}: <b class="stat-green">${streak}</b>`
+            document.getElementById("stat_wrong").innerHTML = `${TEXT[lang].wrong}: <b class="stat-red">${wrong}</b>`
+        }
+
+        function initButtons() {
+
+            document.getElementById("startBtn").onclick = newExample
+
+            document.getElementById("reset-btn").onclick = () => {
+
+                const pass = prompt(TEXT[lang].password)
+                if (pass !== RESET_PASSWORD) return
+
+                const input = prompt(TEXT[lang].resetPrompt)
+
+                if (!input) return
+
+                const num = parseInt(input)
+
+                if (num === 200) {
+
+                    cards = {}
+
+                    total = 0
+                    correct = 0
+                    wrong = 0
+                    streak = 0
+                    step = 0
+
+                    save()
+
+                }
+                else if (num >= MIN_N && num <= MAX_N) {
+
+                    for (let b = firstCol(num); b <= MAX_N; b++) {
+
+                        const key = keyOf(num, b)
+
+                        if (cards[key]) {
+                            cards[key].box = 0
+                            cards[key].due = 0
+                        }
+                    }
+
+                    save()
+                }
+                else {
+                    return
+                }
+
+                updateStats()
+                buildHeatmap()
+                updateQueue()
+            }
+
+            document.getElementById("share-btn").onclick = async () => {
+
+                try {
+                    if (typeof html2canvas === "undefined") throw new Error("html2canvas not loaded")
+
+                    const canvas = await html2canvas(document.body)
+
+                    canvas.toBlob(async blob => {
+
+                        try {
+                            const file = new File([blob], "trainer.jpg", { type: "image/jpeg" })
+
+                            if (navigator.canShare && navigator.canShare({ files: [file] }))
+                                await navigator.share({ files: [file] })
+                            else
+                                alert(TEXT[lang].shareUnsupported)
+                        } catch (e) {
+                            if (e && e.name !== "AbortError") console.error(e)   // AbortError — пользователь закрыл окно «Поделиться»
+                        }
+
+                    }, "image/jpeg", 0.8)
+
+                } catch (e) {
+                    console.error(e)
+                    alert(TEXT[lang].shareUnsupported)
+                }
+            }
+        }
+
+        INIT()
+
+    </script>
+
+</body>
+
+</html>

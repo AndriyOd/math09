@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тренажёр по математике</title>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <style>
+        body {
+            font-family: "Segoe UI", sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            font-size: clamp(14px, 1.5vw, 18px);
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #0078d7;
+            color: white;
+            padding: 10px 20px;
+            font-size: clamp(14px, 1.2vw, 18px);
+            flex-wrap: wrap;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        #datetime {
+            margin-right: 15px;
+        }
+
+        #counters {
+            display: flex;
+            gap: 15px;
+            font-weight: bold;
+            font-size: clamp(14px, 1.2vw, 16px);
+        }
+
+        #total-count {
+            color: white;
+        }
+
+        #correct-count {
+            color: #2ee637;
+        }
+
+        #incorrect-count {
+            color: red;
+        }
+
+        #lang-switch {
+            display: flex;
+            gap: 8px;
+            font-weight: bold;
+            font-size: clamp(14px, 1.2vw, 16px);
+            cursor: pointer;
+        }
+
+        #lang-switch span {
+            cursor: pointer;
+            opacity: 0.7;
+        }
+
+        #lang-switch .active {
+            text-decoration: underline;
+            opacity: 1;
+        }
+
+        /* Кнопка "Поделиться" */
+        #share-btn {
+            background-color: #35a8ea;
+            border: none;
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-size: clamp(14px, 1.2vw, 16px);
+            cursor: pointer;
+            color: white;
+            margin-left: 20px;
+        }
+
+        main {
+            max-width: 560px;
+            margin: 30px auto;
+            background-color: white;
+            padding: 20px 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #0078d7;
+            font-size: clamp(20px, 2vw, 28px);
+        }
+
+        /* ==== Один пример ==== */
+        .example {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+            font-size: clamp(16px, 1.6vw, 20px);
+        }
+
+        .example:last-child {
+            border-bottom: none;
+        }
+
+        .number {
+            font-size: 0.7em;
+            color: #555;
+            margin-right: 2px;
+            min-width: 20px;
+            text-align: right;
+            align-self: flex-start;
+            padding-top: 6px;
+        }
+
+        /* Сетка: делимое | знак | делитель | = | результат | R | остаток | прошлые неверные.
+           Ширина колонок = ширина поля ввода (N цифр + padding 2*4px + border 2*1px) */
+        .calc {
+            display: grid;
+            grid-template-columns: calc(3ch + 10px) 1em calc(3ch + 10px) 1em calc(2ch + 10px) 1em calc(1ch + 10px) auto;
+            column-gap: 6px;
+            row-gap: 6px;
+            align-items: center;
+            font-size: clamp(15px, 1.4vw, 18px);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .calc>* {
+            min-width: 0;
+        }
+
+        /* Статический текст (числа из условия) выравнивается вправо,
+           с тем же отступом, что и текст внутри полей ввода */
+        .cell-num {
+            text-align: right;
+            padding-right: 5px;
+        }
+
+        .cell-op {
+            text-align: center;
+        }
+
+        .cell-div {
+            text-align: left;
+            padding-left: 5px;
+        }
+
+        /* Поля ввода: число выравнивается вправо */
+        .calc input {
+            box-sizing: content-box;
+            padding: 4px;
+            border: 1px solid #999;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: inherit;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            outline: none;
+        }
+
+        .calc input:focus {
+            border-color: #0078d7;
+            box-shadow: 0 0 0 2px rgba(0, 120, 215, 0.2);
+        }
+
+        .calc input.ok {
+            border-color: #28a745;
+            background-color: #eafbee;
+        }
+
+        .calc input.bad {
+            border-color: #dc3545;
+            background-color: #fdecee;
+        }
+
+        .calc input.w1 {
+            width: 1ch;
+        }
+
+        .calc input.w2 {
+            width: 2ch;
+        }
+
+        .calc input.w3 {
+            width: 3ch;
+        }
+
+        .result {
+            font-size: clamp(20px, 2vw, 26px);
+            font-weight: bold;
+            min-width: 2.2em;
+            white-space: nowrap;
+        }
+
+        .correct {
+            color: green;
+        }
+
+        .incorrect {
+            color: red;
+        }
+
+        /* Ранее введённые неверные ответы */
+        .previous {
+            margin-left: 5px;
+            font-size: clamp(14px, 1.4vw, 16px);
+            color: #888;
+            display: flex;
+            gap: 8px;
+            white-space: nowrap;
+        }
+
+        .wrong {
+            position: relative;
+            display: inline-block;
+            color: #888;
+        }
+
+        .wrong::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 0.75px;
+            background-color: rgba(136, 136, 136, 0.7);
+            transform: rotate(-25deg);
+            transform-origin: center;
+        }
+
+        #check-btn {
+            display: block;
+            width: 100%;
+            margin-top: 20px;
+            background-color: #28a745;
+            color: white;
+            font-size: clamp(14px, 1.4vw, 18px);
+            padding: clamp(8px, 1.2vw, 12px);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        #check-btn:hover {
+            background-color: #218838;
+        }
+
+        @media (max-width: 600px) {
+            main {
+                width: 90%;
+                padding: 15px 12px;
+            }
+
+            header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .example {
+                gap: 4px;
+            }
+
+            .calc {
+                column-gap: 3px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div id="datetime"></div>
+        <div id="counters">
+            <span data-i18n="total">Всего:</span> <span id="total-count">0</span> |
+            <span data-i18n="correct">Верно:</span> <span id="correct-count">0</span> |
+            <span data-i18n="incorrect">Неверно:</span> <span id="incorrect-count">0</span>
+        </div>
+        <div id="lang-switch">
+            <span data-lang="ru">RU</span>|
+            <span data-lang="de">DE</span>|
+            <span data-lang="en">EN</span>
+            <button id="share-btn" data-i18n="share">Поделиться</button>
+        </div>
+    </header>
+
+    <main>
+        <h1 data-i18n="title">Деление с остатком</h1>
+        <div id="examples"></div>
+        <button id="check-btn" data-i18n="check">Проверить</button>
+    </main>
+
+    <script>
+        // ==== Параметры генерации ====
+        const MIN_DIVISOR = 2, MAX_DIVISOR = 9;   // однозначный делитель больше 1
+        const MIN_DIVIDEND = 100;                 // трёхзначное делимое
+        const MAX_QUOTIENT = 99;                  // частное не больше двузначного
+        const INITIAL_EXAMPLES = 2;               // количество примеров на странице при загрузке
+
+        // ==== Мультиязычность ====
+        const translations = {
+            ru: {
+                title: "Деление с остатком",
+                check: "Проверить",
+                total: "Всего:",
+                correct: "Верно:",
+                incorrect: "Неверно:",
+                share: "Поделиться",
+                shareTitle: "Скриншот тренажёра",
+                shareText: "Смотри, что я сделал!",
+                shareUnsupported: "Ваш браузер не поддерживает шаринг файлов."
+            },
+            de: {
+                title: "Division mit Rest",
+                check: "Prüfen",
+                total: "Gesamt:",
+                correct: "Richtig:",
+                incorrect: "Falsch:",
+                share: "Teilen",
+                shareTitle: "Screenshot vom Trainer",
+                shareText: "Schau, was ich gemacht habe!",
+                shareUnsupported: "Dein Browser unterstützt das Teilen von Dateien nicht."
+            },
+            en: {
+                title: "Division with Remainder",
+                check: "Check",
+                total: "Total:",
+                correct: "Correct:",
+                incorrect: "Incorrect:",
+                share: "Share",
+                shareTitle: "Trainer screenshot",
+                shareText: "Look what I did!",
+                shareUnsupported: "Your browser does not support sharing files."
+            }
+        };
+        let currentLang = localStorage.getItem('lang') || 'de';
+        document.querySelectorAll('#lang-switch span').forEach(btn => {
+            btn.addEventListener('click', () => {
+                currentLang = btn.dataset.lang;
+                localStorage.setItem('lang', currentLang);
+                updateLanguage();
+                updateDateTime();
+            });
+        });
+        function updateLanguage() {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                el.textContent = translations[currentLang][el.dataset.i18n];
+            });
+            document.querySelectorAll('#lang-switch span').forEach(s =>
+                s.classList.toggle('active', s.dataset.lang === currentLang));
+        }
+
+        // ==== Скрипт шаринга ====
+        async function shareScreenshot() {
+            try {
+                const clone = document.body.cloneNode(true);
+                const container = document.createElement('div');
+                container.style.position = 'fixed';
+                container.style.top = '0';
+                container.style.left = '0';
+                container.style.width = '100vw';
+                container.style.pointerEvents = 'none';
+                container.style.zIndex = '-9999';
+                container.appendChild(clone);
+                document.body.appendChild(container);
+
+                const width = document.documentElement.scrollWidth;
+                const height = document.documentElement.scrollHeight;
+
+                const canvas = await html2canvas(container, { width, height, windowWidth: width, windowHeight: height });
+                document.body.removeChild(container);
+
+                canvas.toBlob(async (blob) => {
+                    const file = new File([blob], "screenshot.jpg", { type: "image/jpeg" });
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        await navigator.share({
+                            files: [file],
+                            title: translations[currentLang].shareTitle,
+                            text: translations[currentLang].shareText
+                        });
+                    } else {
+                        alert(translations[currentLang].shareUnsupported);
+                    }
+                }, "image/jpeg", 0.8);
+            } catch (err) {
+                console.error("Ошибка при создании скриншота:", err);
+            }
+        }
+        document.getElementById('share-btn').addEventListener('click', shareScreenshot);
+
+        // ==== Элементы страницы ====
+        const examplesContainer = document.getElementById('examples');
+        const checkBtn = document.getElementById('check-btn');
+        const datetime = document.getElementById('datetime');
+        const totalCountEl = document.getElementById('total-count');
+        const correctCountEl = document.getElementById('correct-count');
+        const incorrectCountEl = document.getElementById('incorrect-count');
+
+        let totalCount = 0, correctCount = 0, incorrectCount = 0;
+
+        // ==== Время ====
+        function updateDateTime() {
+            const now = new Date();
+            datetime.textContent = now.toLocaleString(currentLang === 'de' ? 'de-DE' : currentLang === 'en' ? 'en-GB' : 'ru-RU');
+        }
+        setInterval(updateDateTime, 1000);
+        updateDateTime();
+
+        function randomNum(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        // Подсказка: делимое < делитель * 100 (частное двузначное),
+        // остаток всегда есть, а единицы частного не равны нулю,
+        // чтобы третья строка не превращалась в «0 : 8 = 0».
+        function generateTask() {
+            while (true) {
+                const d = randomNum(MIN_DIVISOR, MAX_DIVISOR);
+                const n = randomNum(MIN_DIVIDEND, d * (MAX_QUOTIENT + 1) - 1);
+                const q = Math.floor(n / d);
+                const r = n % d;
+                if (r === 0) continue;
+                if (q % 10 === 0) continue;
+                const tens = Math.floor(q / 10);
+                const ones = q % 10;
+                return {
+                    n, d,
+                    // ключ: правильный ответ
+                    q: q,                    // 258 : 8 = [32] R_
+                    r: r,                    // 258 : 8 = _ R[2]
+                    d1: tens * 10 * d,       // [240] : 8 = _
+                    q1: tens * 10,           // 240 : 8 = [30]
+                    d2: ones * d,            // [16] : 8 = _
+                    q2: ones,                // 16 : 8 = [2]
+                    s: q * d,                // 258 - [256] = _
+                    rem: r                   // 258 - 256 = [2]
+                };
+            }
+        }
+
+        // Строки примера: какие поля в какой строке (для вывода прежних ошибок)
+        const ROWS = [['q', 'r'], ['d1', 'q1'], ['d2', 'q2'], ['s', 'rem']];
+
+        function field(key, cls, maxlen) {
+            return `<input type="text" inputmode="numeric" autocomplete="off" class="answer ${cls}" data-key="${key}" maxlength="${maxlen}" />`;
+        }
+
+        function createExample() {
+            const t = generateTask();
+            const example = document.createElement('div');
+            example.className = 'example';
+            example.dataset.answers = JSON.stringify({
+                q: t.q, r: t.r, d1: t.d1, q1: t.q1, d2: t.d2, q2: t.q2, s: t.s, rem: t.rem
+            });
+            example.dataset.previous = '{}';
+            const index = examplesContainer.children.length + 1;
+            example.innerHTML = `
+        <span class="number">${index}.</span>
+        <div class="calc">
+            <span class="cell-num">${t.n}</span><span class="cell-op">:</span><span class="cell-div">${t.d}</span><span class="cell-op">=</span>
+            ${field('q', 'w2', 2)}<span class="cell-op">R</span>${field('r', 'w1', 1)}<span class="previous" data-row="0"></span>
+
+            ${field('d1', 'w3', 3)}<span class="cell-op">:</span><span class="cell-div">${t.d}</span><span class="cell-op">=</span>
+            ${field('q1', 'w2', 2)}<span></span><span></span><span class="previous" data-row="1"></span>
+
+            ${field('d2', 'w3', 3)}<span class="cell-op">:</span><span class="cell-div">${t.d}</span><span class="cell-op">=</span>
+            ${field('q2', 'w2', 2)}<span></span><span></span><span class="previous" data-row="2"></span>
+
+            <span class="cell-num">${t.n}</span><span class="cell-op">−</span>${field('s', 'w3', 3)}<span class="cell-op">=</span>
+            ${field('rem', 'w2', 2)}<span></span><span></span><span class="previous" data-row="3"></span>
+        </div>
+        <span class="result"></span>
+    `;
+            examplesContainer.appendChild(example);
+            totalCount++;
+            updateCounters();
+        }
+
+        function generateExamples(initial = INITIAL_EXAMPLES) {
+            examplesContainer.innerHTML = '';
+            totalCount = 0; correctCount = 0; incorrectCount = 0;
+            for (let i = 0; i < initial; i++) createExample();
+            updateCounters();
+            focusFirst();
+        }
+
+        function focusFirst() {
+            const first = document.querySelector('.answer');
+            if (first) first.focus();
+        }
+
+        // ==== Ввод: только цифры, Enter — к следующему полю ====
+        examplesContainer.addEventListener('input', (e) => {
+            const inp = e.target;
+            if (!inp.classList.contains('answer')) return;
+            inp.value = inp.value.replace(/\D/g, '');
+            inp.classList.remove('ok', 'bad');
+        });
+        examplesContainer.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' || !e.target.classList.contains('answer')) return;
+            e.preventDefault();
+            const inputs = [...document.querySelectorAll('.answer')];
+            const i = inputs.indexOf(e.target);
+            if (i < inputs.length - 1) inputs[i + 1].focus();
+        });
+
+        function updateCounters() {
+            totalCountEl.textContent = totalCount;
+            correctCountEl.textContent = correctCount;
+            incorrectCountEl.textContent = incorrectCount;
+        }
+
+        // ==== Проверка ====
+        function checkAnswers() {
+            const examples = document.querySelectorAll('.example');
+            correctCount = 0;
+            incorrectCount = 0;
+            let needNew = 0;
+
+            examples.forEach(ex => {
+                const answers = JSON.parse(ex.dataset.answers);
+                const previous = JSON.parse(ex.dataset.previous);
+                const inputs = ex.querySelectorAll('.answer');
+                let allCorrect = true;
+                let anyWrong = false;
+                let newWrong = false;
+
+                inputs.forEach(inp => {
+                    const key = inp.dataset.key;
+                    const correct = answers[key];
+                    const val = inp.value.trim() === '' ? NaN : +inp.value;
+                    inp.classList.remove('ok', 'bad');
+
+                    if (val === correct) {
+                        inp.classList.add('ok');
+                    } else {
+                        allCorrect = false;
+                        if (!Number.isNaN(val)) {
+                            inp.classList.add('bad');
+                            anyWrong = true;
+                            previous[key] = previous[key] || [];
+                            if (!previous[key].includes(val)) {
+                                previous[key].push(val);
+                                newWrong = true;
+                            }
+                        }
+                    }
+                });
+
+                // За каждый пример с новой ошибкой добавляется один новый пример
+                if (newWrong) needNew++;
+
+                ex.dataset.previous = JSON.stringify(previous);
+
+                // Значки ✔ / ✘
+                const resultSpan = ex.querySelector('.result');
+                const hasPrevious = Object.values(previous).some(arr => arr.length > 0);
+                resultSpan.innerHTML = '';
+                if (allCorrect) {
+                    resultSpan.innerHTML = hasPrevious
+                        ? `<span class="correct">✔</span> <span class="incorrect">✘</span>`
+                        : `<span class="correct">✔</span>`;
+                } else if (anyWrong) {
+                    resultSpan.innerHTML = `<span class="incorrect">✘</span>`;
+                }
+
+                // Прежние неверные ответы — справа от своей строки
+                ex.querySelectorAll('.previous').forEach(span => {
+                    const keys = ROWS[+span.dataset.row];
+                    const parts = [];
+                    keys.forEach(k => {
+                        (previous[k] || []).forEach(v => {
+                            const label = k === 'r' ? 'R' + v : v;
+                            parts.push(`<span class="wrong">${label}</span>`);
+                        });
+                    });
+                    span.innerHTML = parts.join(' ');
+                });
+
+                incorrectCount += Object.values(previous).reduce((s, arr) => s + arr.length, 0);
+                if (allCorrect) correctCount++;
+            });
+
+            for (let i = 0; i < needNew; i++) createExample();
+
+            document.querySelectorAll('.example').forEach((ex, idx) => {
+                ex.querySelector('.number').textContent = (idx + 1) + '.';
+            });
+
+            updateCounters();
+        }
+
+        updateLanguage();
+        generateExamples();
+        checkBtn.addEventListener('click', checkAnswers);
+    </script>
+</body>
+
+</html>

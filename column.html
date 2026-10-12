@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тренажёр по математике</title>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <style>
+        body {
+            font-family: "Segoe UI", sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            font-size: clamp(14px, 1.5vw, 18px);
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #0078d7;
+            color: white;
+            padding: 10px 20px;
+            font-size: clamp(14px, 1.2vw, 18px);
+            flex-wrap: wrap;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        #datetime {
+            margin-right: 15px;
+        }
+
+        #counters {
+            display: flex;
+            gap: 15px;
+            font-weight: bold;
+            font-size: clamp(14px, 1.2vw, 16px);
+        }
+
+        #total-count {
+            color: white;
+        }
+
+        #correct-count {
+            color: #2ee637;
+        }
+
+        #incorrect-count {
+            color: red;
+        }
+
+        #lang-switch {
+            display: flex;
+            gap: 8px;
+            font-weight: bold;
+            font-size: clamp(14px, 1.2vw, 16px);
+            cursor: pointer;
+        }
+
+        #lang-switch span {
+            cursor: pointer;
+            opacity: 0.7;
+        }
+
+        #lang-switch .active {
+            text-decoration: underline;
+            opacity: 1;
+        }
+
+        /* Кнопка "Поделиться" */
+        #share-btn {
+            background-color: #35a8ea;
+            border: none;
+            border-radius: 8px;
+            padding: 6px 12px;
+            font-size: clamp(14px, 1.2vw, 16px);
+            cursor: pointer;
+            color: white;
+            margin-left: 20px;
+        }
+
+        main {
+            max-width: 560px;
+            margin: 30px auto;
+            background-color: white;
+            padding: 20px 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #0078d7;
+            font-size: clamp(20px, 2vw, 28px);
+        }
+
+        /* ==== Один пример ==== */
+        .example {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            margin: 10px 0;
+            padding: 14px 0;
+            border-bottom: 1px solid #eee;
+            font-size: clamp(18px, 1.8vw, 22px);
+        }
+
+        .example:last-child {
+            border-bottom: none;
+        }
+
+        .number {
+            font-size: 0.7em;
+            color: #555;
+            min-width: 20px;
+            text-align: right;
+            align-self: flex-start;
+            padding-top: 6px;
+        }
+
+        /* Сетка: 1-й столбец — знак, остальные — разряды */
+        .calc {
+            display: grid;
+            grid-template-columns: repeat(var(--cols), 1.9em);
+            grid-template-rows: repeat(3, 1.9em) 6px 1.9em;
+            column-gap: 4px;
+            row-gap: 4px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Линия между 3-й и 4-й строкой */
+        .line {
+            grid-column: 1 / -1;
+            align-self: center;
+            height: 0;
+            border-top: 2px solid #333;
+        }
+
+        .calc input {
+            box-sizing: border-box;
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            border: 1px solid #999;
+            border-radius: 4px;
+            font-family: inherit;
+            font-size: inherit;
+            text-align: center;
+            outline: none;
+        }
+
+        /* Строка переносов — чуть мельче и светлее */
+        .calc input.carry {
+            font-size: 0.8em;
+            color: #555;
+            background-color: #fafafa;
+            border-color: #bbb;
+        }
+
+        .calc input:focus {
+            border-color: #0078d7;
+            box-shadow: 0 0 0 2px rgba(0, 120, 215, 0.2);
+        }
+
+        .calc input.ok {
+            border-color: #28a745;
+            background-color: #eafbee;
+        }
+
+        .calc input.bad {
+            border-color: #dc3545;
+            background-color: #fdecee;
+        }
+
+        .result {
+            font-size: clamp(20px, 2vw, 26px);
+            font-weight: bold;
+            min-width: 2.2em;
+            white-space: nowrap;
+        }
+
+        .correct {
+            color: green;
+        }
+
+        .incorrect {
+            color: red;
+        }
+
+        #check-btn {
+            display: block;
+            width: 100%;
+            margin-top: 20px;
+            background-color: #28a745;
+            color: white;
+            font-size: clamp(14px, 1.4vw, 18px);
+            padding: clamp(8px, 1.2vw, 12px);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        #check-btn:hover {
+            background-color: #218838;
+        }
+
+        @media (max-width: 600px) {
+            main {
+                width: 90%;
+                padding: 15px 12px;
+            }
+
+            header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            .example {
+                gap: 6px;
+            }
+
+            .calc {
+                column-gap: 3px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div id="datetime"></div>
+        <div id="counters">
+            <span data-i18n="total">Всего:</span> <span id="total-count">0</span> |
+            <span data-i18n="correct">Верно:</span> <span id="correct-count">0</span> |
+            <span data-i18n="incorrect">Неверно:</span> <span id="incorrect-count">0</span>
+        </div>
+        <div id="lang-switch">
+            <span data-lang="ru">RU</span>|
+            <span data-lang="de">DE</span>|
+            <span data-lang="en">EN</span>
+            <button id="share-btn" data-i18n="share">Поделиться</button>
+        </div>
+    </header>
+
+    <main>
+        <h1 data-i18n="title">Сложение и вычитание в столбик</h1>
+        <div id="examples"></div>
+        <button id="check-btn" data-i18n="check">Проверить</button>
+    </main>
+
+    <script>
+        // ==== Настройки ====
+        const EXAMPLES_COUNT = 2;   // количество примеров на странице
+        const DIGITS = 3;           // количество разрядов (допустимо 2..6, иначе будет 3)
+
+        const DIGITS_N = (Number.isInteger(Number(DIGITS)) && Number(DIGITS) >= 2 && Number(DIGITS) <= 6)
+            ? Number(DIGITS) : 3;
+
+        // ==== Мультиязычность ====
+        const translations = {
+            ru: {
+                title: "Сложение и вычитание в столбик",
+                check: "Проверить",
+                total: "Всего:",
+                correct: "Верно:",
+                incorrect: "Неверно:",
+                share: "Поделиться",
+                shareTitle: "Скриншот тренажёра",
+                shareText: "Смотри, что я сделал!",
+                shareUnsupported: "Ваш браузер не поддерживает шаринг файлов."
+            },
+            de: {
+                title: "Schriftlich addieren und subtrahieren",
+                check: "Prüfen",
+                total: "Gesamt:",
+                correct: "Richtig:",
+                incorrect: "Falsch:",
+                share: "Teilen",
+                shareTitle: "Screenshot vom Trainer",
+                shareText: "Schau, was ich gemacht habe!",
+                shareUnsupported: "Dein Browser unterstützt das Teilen von Dateien nicht."
+            },
+            en: {
+                title: "Column Addition and Subtraction",
+                check: "Check",
+                total: "Total:",
+                correct: "Correct:",
+                incorrect: "Incorrect:",
+                share: "Share",
+                shareTitle: "Trainer screenshot",
+                shareText: "Look what I did!",
+                shareUnsupported: "Your browser does not support sharing files."
+            }
+        };
+        let currentLang = localStorage.getItem('lang') || 'de';
+        document.querySelectorAll('#lang-switch span').forEach(btn => {
+            btn.addEventListener('click', () => {
+                currentLang = btn.dataset.lang;
+                localStorage.setItem('lang', currentLang);
+                updateLanguage();
+                updateDateTime();
+            });
+        });
+        function updateLanguage() {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                el.textContent = translations[currentLang][el.dataset.i18n];
+            });
+            document.querySelectorAll('#lang-switch span').forEach(s =>
+                s.classList.toggle('active', s.dataset.lang === currentLang));
+        }
+
+        // ==== Скрипт шаринга ====
+        async function shareScreenshot() {
+            try {
+                const clone = document.body.cloneNode(true);
+                const container = document.createElement('div');
+                container.style.position = 'fixed';
+                container.style.top = '0';
+                container.style.left = '0';
+                container.style.width = '100vw';
+                container.style.pointerEvents = 'none';
+                container.style.zIndex = '-9999';
+                container.appendChild(clone);
+                document.body.appendChild(container);
+
+                const width = document.documentElement.scrollWidth;
+                const height = document.documentElement.scrollHeight;
+
+                const canvas = await html2canvas(container, { width, height, windowWidth: width, windowHeight: height });
+                document.body.removeChild(container);
+
+                canvas.toBlob(async (blob) => {
+                    const file = new File([blob], "screenshot.jpg", { type: "image/jpeg" });
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        await navigator.share({
+                            files: [file],
+                            title: translations[currentLang].shareTitle,
+                            text: translations[currentLang].shareText
+                        });
+                    } else {
+                        alert(translations[currentLang].shareUnsupported);
+                    }
+                }, "image/jpeg", 0.8);
+            } catch (err) {
+                console.error("Ошибка при создании скриншота:", err);
+            }
+        }
+        document.getElementById('share-btn').addEventListener('click', shareScreenshot);
+
+        // ==== Элементы страницы ====
+        const examplesContainer = document.getElementById('examples');
+        const checkBtn = document.getElementById('check-btn');
+        const datetime = document.getElementById('datetime');
+        const totalCountEl = document.getElementById('total-count');
+        const correctCountEl = document.getElementById('correct-count');
+        const incorrectCountEl = document.getElementById('incorrect-count');
+
+        let totalCount = 0, correctCount = 0, incorrectCount = 0;
+
+        // ==== Время ====
+        function updateDateTime() {
+            const now = new Date();
+            datetime.textContent = now.toLocaleString(currentLang === 'de' ? 'de-DE' : currentLang === 'en' ? 'en-GB' : 'ru-RU');
+        }
+        setInterval(updateDateTime, 1000);
+        updateDateTime();
+
+        // ==== Генерация примера ====
+        function randomNum(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        // Операнды и результат всегда имеют DIGITS_N разрядов.
+        // Сложение: сумма не выходит за DIGITS_N разрядов.
+        // Вычитание: операнд 1 > операнд 2, разность тоже DIGITS_N-разрядная.
+        function generateTask() {
+            const n = DIGITS_N;
+            const low = Math.pow(10, n - 1);     // наименьшее n-значное число
+            const high = Math.pow(10, n) - 1;    // наибольшее n-значное число
+            const isAdd = Math.random() < 0.5;
+            let a, b, res;
+            if (isAdd) {
+                a = randomNum(low, high - low);
+                b = randomNum(low, high - a);
+                res = a + b;
+            } else {
+                a = randomNum(2 * low, high);
+                b = randomNum(low, a - low);
+                res = a - b;
+            }
+            const da = String(a).split('').map(Number);
+            const db = String(b).split('').map(Number);
+            const dr = String(res).split('').map(Number);
+
+            // carry[i] — перенос (заём), который приходит в разряд i из разряда i+1.
+            // Показывается в строке 3 над разрядом i; если переноса нет — поле пустое.
+            const carry = new Array(n).fill('');
+            const digits = new Array(n).fill(0);
+            let c = 0;
+            for (let i = n - 1; i >= 0; i--) {
+                carry[i] = c ? '1' : '';
+                let v = isAdd ? da[i] + db[i] + c : da[i] - db[i] - c;
+                let out = 0;
+                if (isAdd && v >= 10) { v -= 10; out = 1; }
+                if (!isAdd && v < 0) { v += 10; out = 1; }
+                digits[i] = v;
+                c = out;
+            }
+            return { isAdd, da, db, dr, carry, digits };
+        }
+
+        function createExample() {
+            const t = generateTask();
+            const n = DIGITS_N;
+            const answers = {};
+            let html = '';
+
+            // Строка 1: операнд 1
+            html += '<span class="cell"></span>';
+            t.da.forEach(d => html += `<span class="cell">${d}</span>`);
+            // Строка 2: знак и операнд 2
+            html += `<span class="cell">${t.isAdd ? '+' : '−'}</span>`;
+            t.db.forEach(d => html += `<span class="cell">${d}</span>`);
+
+            // Порядок ввода: разряд результата справа налево, после каждого — перенос над следующим разрядом
+            const seqRes = i => 2 * (n - 1 - i);
+            const seqCarry = i => 2 * (n - 2 - i) + 1;   // перенос над разрядом i (i = 0..n-2)
+
+            // Строка 3: переносы
+            html += '<span class="cell"></span>';
+            for (let i = 0; i < n; i++) {
+                answers['c' + i] = t.carry[i];
+                const seq = i <= n - 2 ? `data-seq="${seqCarry(i)}"` : 'tabindex="-1"';  // в разряде единиц переноса не бывает
+                html += `<span class="cell"><input type="text" inputmode="numeric" autocomplete="off" maxlength="1" class="answer carry" data-key="c${i}" ${seq} /></span>`;
+            }
+            // Линия
+            html += '<div class="line"></div>';
+            // Строка 4: результат
+            html += '<span class="cell"></span>';
+            for (let i = 0; i < n; i++) {
+                answers['r' + i] = String(t.digits[i]);
+                html += `<span class="cell"><input type="text" inputmode="numeric" autocomplete="off" maxlength="1" class="answer" data-key="r${i}" data-seq="${seqRes(i)}" /></span>`;
+            }
+
+            const example = document.createElement('div');
+            example.className = 'example';
+            example.dataset.answers = JSON.stringify(answers);
+            example.dataset.attempts = '[]';
+            const index = examplesContainer.children.length + 1;
+            example.innerHTML = `
+        <span class="number">${index}.</span>
+        <div class="calc" style="--cols:${n + 1}">${html}</div>
+        <span class="result"></span>
+    `;
+            examplesContainer.appendChild(example);
+            totalCount++;
+            updateCounters();
+        }
+
+        function generateExamples(count = EXAMPLES_COUNT) {
+            examplesContainer.innerHTML = '';
+            totalCount = 0; correctCount = 0; incorrectCount = 0;
+            for (let i = 0; i < count; i++) createExample();
+            updateCounters();
+            const first = navList()[0];
+            if (first) first.focus();
+        }
+
+        // ==== Порядок ввода по всем примерам ====
+        function navList() {
+            const list = [];
+            document.querySelectorAll('.example').forEach(ex => {
+                const ins = [...ex.querySelectorAll('.answer[data-seq]')]
+                    .sort((x, y) => x.dataset.seq - y.dataset.seq);
+                list.push(...ins);
+            });
+            return list;
+        }
+        function focusRelative(inp, step) {
+            const list = navList();
+            const i = list.indexOf(inp);
+            if (i === -1) return;
+            const next = list[i + step];
+            if (next) next.focus();
+        }
+
+        // ==== Ввод: одна цифра, автопереход к следующему полю ====
+        examplesContainer.addEventListener('input', (e) => {
+            const inp = e.target;
+            if (!inp.classList.contains('answer')) return;
+            inp.value = inp.value.replace(/\D/g, '').slice(0, 1);
+            inp.classList.remove('ok', 'bad');
+            if (inp.value !== '') focusRelative(inp, 1);
+        });
+        examplesContainer.addEventListener('keydown', (e) => {
+            const inp = e.target;
+            if (!inp.classList.contains('answer')) return;
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                focusRelative(inp, 1);
+            } else if (e.key === 'Backspace' && inp.value === '') {
+                focusRelative(inp, -1);
+            }
+        });
+        examplesContainer.addEventListener('focusin', (e) => {
+            if (e.target.classList.contains('answer')) e.target.select();
+        });
+
+        function updateCounters() {
+            totalCountEl.textContent = totalCount;
+            correctCountEl.textContent = correctCount;
+            incorrectCountEl.textContent = incorrectCount;
+        }
+
+        // ==== Проверка ====
+        // Поле верно, если введена нужная цифра. Там, где переноса нет, поле должно быть пустым
+        // (ноль тоже принимается).
+        function fieldOk(raw, expected) {
+            return raw === expected || (expected === '' && raw === '0');
+        }
+
+        function checkAnswers() {
+            correctCount = 0;
+            incorrectCount = 0;
+
+            document.querySelectorAll('.example').forEach(ex => {
+                const answers = JSON.parse(ex.dataset.answers);
+                const attempts = JSON.parse(ex.dataset.attempts);
+                const inputs = [...ex.querySelectorAll('.answer')];
+                const resultInputs = inputs.filter(i => i.dataset.key.startsWith('r'));
+                const resultFilled = resultInputs.every(i => i.value !== '');
+
+                let allCorrect = true;
+                let anyBad = false;
+                inputs.forEach(inp => {
+                    const raw = inp.value;
+                    const expected = answers[inp.dataset.key];
+                    const ok = fieldOk(raw, expected);
+                    inp.classList.remove('ok', 'bad');
+                    if (!ok) allCorrect = false;
+                    if (raw !== '') {
+                        inp.classList.add(ok ? 'ok' : 'bad');
+                        if (!ok) anyBad = true;
+                    }
+                });
+
+                // Результат записан целиком, но пропущен нужный перенос — подсвечиваем пустое поле
+                const showWrong = anyBad || (resultFilled && !allCorrect);
+                if (resultFilled && !allCorrect) {
+                    inputs.forEach(inp => {
+                        if (inp.value === '' && !fieldOk('', answers[inp.dataset.key])) inp.classList.add('bad');
+                    });
+                }
+
+                // Запоминаем неверную попытку (одинаковые повторные не считаются)
+                if (showWrong) {
+                    const signature = inputs.map(i => i.value).join('|');
+                    if (!attempts.includes(signature)) attempts.push(signature);
+                }
+                ex.dataset.attempts = JSON.stringify(attempts);
+
+                // Значки ✔ / ✘
+                const resultSpan = ex.querySelector('.result');
+                resultSpan.innerHTML = '';
+                if (allCorrect) {
+                    resultSpan.innerHTML = attempts.length > 0
+                        ? `<span class="correct">✔</span> <span class="incorrect">✘</span>`
+                        : `<span class="correct">✔</span>`;
+                } else if (showWrong) {
+                    resultSpan.innerHTML = `<span class="incorrect">✘</span>`;
+                }
+
+                incorrectCount += attempts.length;
+                if (allCorrect) correctCount++;
+            });
+
+            updateCounters();
+        }
+
+        updateLanguage();
+        generateExamples();
+        checkBtn.addEventListener('click', checkAnswers);
+    </script>
+</body>
+
+</html>
